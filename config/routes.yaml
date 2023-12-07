@@ -9,8 +9,12 @@ register:
     controller: App\Controller\UserController::register
     methods: ['POST']
 
-
 login:
     path: /login
     controller: App\Controller\UserController::login
     methods: ['POST']
+
+app_user_reservations:
+    path: '/users/{id}/reservations'
+    controller: 'App\Controller\UserController::getUserReservations'
+    methods: ['GET']
