@@ -9,64 +9,53 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
 use Symfony\Component\Routing\Annotation\Route;
-use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
-use Symfony\Component\Security\Core\Security;
 use App\Service\ReservationService;
 
-#[Route('/register', name: 'app_user_register', methods: ['POST'])]
+
 class UserController extends AbstractController
 {
-
-
-    public function __construct(private JWTTokenManagerInterface $jwtManager,  private ManagerRegistry $managerRegistry,
-                            private UserPasswordHasherInterface $passwordHasher, private Security $security,
-                            private ReservationService $reservationService)
-    {
+    public function __construct(
+        private JWTTokenManagerInterface $jwtManager,  
+        private ManagerRegistry $managerRegistry,
+        private ReservationService $reservationService
+    ){
     }
 
     // Register
+    #[Route('/api/register', name: 'app_user_register', methods: ['POST'])]
     public function register(Request $request)
     {
-        $data = json_decode($request->getContent(), true);
-
+        $decoded = json_decode($request->getContent());
+        $email = $decoded->email;
+        $password = $decoded->password;
+   
         $user = new User();
-        $user->setEmail($data['email']);
-
-        // $hashedPassword = $this->passwordHasher->hashPassword(
-        //     $user,
-        //     $data['password']
-        // );
-
-        // $user->setPassword($hashedPassword);
-        $user->setPassword($data['password']);
-        
-        $entityManager = $this->managerRegistry->getManager();
-        $entityManager->persist($user);
-        $entityManager->flush();
-
-        return new JsonResponse(['message' => 'User registered successfully']);
+        $user->setEmail($email);
+        $user->setPassword($password);
+        $em = $this->managerRegistry->getManager();
+        $em->persist($user);
+        $em->flush();
+   
+        return $this->json(['message' => 'Registered Successfully']);
     }
 
     // Login
-    #[Route('/login', name: 'app_user_login', methods: ['POST'])]
+    #[Route('/api/login', name: 'app_user_login', methods: ['POST'])]
     public function login(Request $request)
     {
-        $data = json_decode($request->getContent(), true);
+        $decoded = json_decode($request->getContent(), true);
 
-        $user = $this->managerRegistry->getRepository(User::class)->findOneBy(['email' => $data['email']]);
+        $user = $this->managerRegistry->getRepository(User::class)->findOneBy(['email' => $decoded['email']]);
 
-        // dd($user);
         $token = $this->jwtManager->create($user);
-        dd($token);
         return new JsonResponse(['token' => $token]);
     }
 
-    #[Route('/users/{id}/reservations', name: 'app_user_reservations', methods: ['GET'])]
+    // Allows user to view their own reservations.
+    #[Route('/api/users/{id}/reservations', name: 'app_user_reservations', methods: ['GET'])]
     public function getUserReservations(int $id): JsonResponse
     {
-
         $userReservations = $this->reservationService->getUserReservations($id);
-
         return $this->json(['reservations' => $userReservations]);
     }
 }

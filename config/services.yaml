@@ -20,14 +20,17 @@ services:
             - '../src/Entity/'
             - '../src/Kernel.php'
 
-    App\Service\ReservationService:
-        arguments:
-            $userRepository: '@App\Repository\UserRepository'
+    # App\Service\ReservationService:
+    #     arguments:
+    #         $userRepository: '@App\Repository\UserRepository'
 
     App\Service\CarService:
         arguments:
             $reservationRepository: '@App\Repository\ReservationRepository'
-            
+
+    'App\DataPersister\UserDataPersister': ~
+        # Uncomment only if autoconfiguration is disabled
+        #tags: [ 'api_platform.data_persister' ]
         
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
