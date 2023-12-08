@@ -3,20 +3,21 @@
 namespace App\Controller;
 
 use App\Entity\Reservation;
-use App\Entity\Car;
 use App\Service\CarService;
-use App\Entity\User;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\Routing\Annotation\Route;
 use Doctrine\Persistence\ManagerRegistry;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpFoundation\Response;
+use App\Service\ReservationService;
 
 class ReservationController extends AbstractController
 {
-    public function __construct(private ManagerRegistry $managerRegistry, private CarService $carService)
-    {
+    public function __construct(
+        private ManagerRegistry $managerRegistry, 
+        private CarService $carService,
+        private ReservationService $reservationService
+    ){
     }
 
     #[Route('/api/reservations', name: 'app_reservation_create', methods: ['POST'])]
@@ -24,30 +25,17 @@ class ReservationController extends AbstractController
     {
         $data = json_decode($request->getContent(), true);
 
-        $carId = $data['car_id'] ?? null;
-        $userId = $data['user_id'] ?? null;
-        $startDate = new \DateTime($data['start_date']) ?? null;
-        $endDate = new \DateTime($data['end_date']) ?? null;
-        
-        $car = $this->managerRegistry->getRepository(Car::class)->find($carId);
-        $user = $this->managerRegistry->getRepository(User::class)->find($userId);
+        [$car, $user] = $this->reservationService->findCarAndUser($data['car_id'] ?? null, $data['user_id'] ?? null);
 
-        if (!$car) {
-            return $this->json(['error' => 'Car not found'], 404);
-        }
+        $validationResponse = $this->reservationService->checkAvailabilityAndDates(
+            $car,
+            $user,
+            $data['start_date'],
+            $data['end_date']
+        );
 
-        if (!$user) {
-            return $this->json(['error' => 'User not found'], 404);
-        }
-        
-        // Check availability dates
-        if (!$this->carService->isCarAvailable($car, $startDate, $endDate)) {
-            return new Response("Car not available for the specified dates.", Response::HTTP_BAD_REQUEST);
-        }
-
-        // Check reservation dates
-        if (!$this->carService->validateReservationDates($startDate, $endDate)) {
-            return new Response("Invalid reservation dates", Response::HTTP_BAD_REQUEST);
+        if ($validationResponse !== true) {
+            return $validationResponse;
         }
 
         $reservation = new Reservation();
@@ -66,38 +54,35 @@ class ReservationController extends AbstractController
     #[Route('/api/reservations/{id}', name: 'app_reservation_update', methods: ['PUT'])]
     public function update(int $id, Request $request): JsonResponse
     {
-        $data = json_decode($request->getContent(), true);
-
+        
+        
         $reservation = $this->managerRegistry->getRepository(Reservation::class)->find($id);
-
-        if (!$reservation) {
+        // Checking if the reservation exists
+        if (!$this->managerRegistry->getRepository(Reservation::class)->find($id)) {
             return $this->json(['error' => 'Reservation not found'], 404);
         }
 
-        $carId = $data['car_id'] ?? null;
-        $userId = $data['user_id'] ?? null;
-        $startDate = isset($data['start_date']) ? new \DateTime($data['start_date']) : null;
-        $endDate = isset($data['end_date']) ? new \DateTime($data['end_date']) : null;
-
-        $car = $this->managerRegistry->getRepository(Car::class)->find($carId);
-        $user = $this->managerRegistry->getRepository(User::class)->find($userId);
-
-        if (!$car) {
-            return $this->json(['error' => 'Car not found'], 404);
+        $currentUser = $this->getUser();
+        // Check if the current user is the owner of the reservation
+        if ($reservation->getUser() !== $currentUser) {
+            return $this->json(['error' => 'You are not allowed to update this reservation'], 403);
         }
 
-        if (!$user) {
-            return $this->json(['error' => 'User not found'], 404);
-        }
+        $data = json_decode($request->getContent(), true);
 
-        // Check availability dates
-        if (!$this->carService->isCarAvailable($car, $startDate, $endDate)) {
-            return new Response("Car not available for the specified dates.", Response::HTTP_BAD_REQUEST);
-        }
+        [$car, $user] = $this->reservationService->findCarAndUser($data['car_id'] ?? null, $data['user_id'] ?? null);
+        $startDate = $data['start_date'] ?? null;
+        $endDate = $data['end_date'] ?? null;
 
-        // Check reservation dates
-        if (!$this->carService->validateReservationDates($startDate, $endDate)) {
-            return new Response("Invalid reservation dates", Response::HTTP_BAD_REQUEST);
+        $validationResponse = $this->reservationService->checkAvailabilityAndDates(
+            $car,
+            $user,
+            $data['start_date'],
+            $data['end_date']
+        );
+
+        if ($validationResponse !== true) {
+            return $validationResponse;
         }
 
         $reservation->setCar($car);
