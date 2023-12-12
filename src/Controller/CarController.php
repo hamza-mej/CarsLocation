@@ -21,7 +21,7 @@ class CarController extends AbstractController
     {
         $cars = $this->managerRegistry->getRepository(Car::class)->findAll();
         
-        return $this->json($cars);
+        return $this->json(['message' => 'Car list successfully retrieved', 'cars' => $cars]);
     }
 
     #[Route('/api/cars/{id}', name: 'app_car_show', methods: ['GET'])]
@@ -32,8 +32,7 @@ class CarController extends AbstractController
         if (!$car) {
             return $this->json(['error' => 'Car not found'], 404);
         }
-
-        return $this->json($car);
+        return $this->json(['message' => 'Car details successfully shown', 'car_id' => $car->getId()]);
     }
 
     #[Route('/api/cars', name: 'app_car_create', methods: ['POST'])]
@@ -51,6 +50,14 @@ class CarController extends AbstractController
         $entityManager->persist($car);
         $entityManager->flush();
 
-        return $this->json(['message' => 'Car created successfully', 'id' => $car->getId()]);
+        $createdCar = $this->managerRegistry->getRepository(Car::class)->find($car->getId());
+
+        return $this->json(['message' => 'Car created successfully', 'car' => [
+            'id' => $createdCar->getId(),
+            'brand' => $createdCar->getBrand(),
+            'model' => $createdCar->getModel(),
+            'year' => $createdCar->getYear(),
+            'price' => $createdCar->getPrice(),
+        ]]);
     }
 }

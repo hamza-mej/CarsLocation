@@ -6,8 +6,10 @@ use App\Entity\User;
 use App\Repository\UserRepository;
 use App\Repository\ReservationRepository;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use App\Entity\Car;
 use Doctrine\Persistence\ManagerRegistry;
+use Doctrine\Common\Collections\Collection;
 
 class ReservationService
 {
@@ -29,7 +31,16 @@ class ReservationService
 
         $reservations = $user->getReservations();
 
-        return $reservations->toArray();
+        $reservationData = [];
+
+        foreach ($reservations as $reservation) {
+            $reservationData[$reservation->getId()] = [
+                'reservation_id' => $reservation->getId(),
+                'user' => $reservation->getUser(),
+            ];
+        }
+        
+        return $reservationData;
     }
 
     public function findCarAndUser(int $carId, int $userId): array
@@ -40,31 +51,32 @@ class ReservationService
         ];
     }
 
-    public function checkAvailabilityAndDates(Car $car, User $user, string $startDate, string $endDate): ?Response
+    public function checkAvailabilityAndDates(Car $car, User $user, string $startDate, string $endDate): ?JsonResponse
     {
         if (!$car) {
-            return new Response("Car not found", Response::HTTP_NOT_FOUND);
+            return new JsonResponse("Car not found", JsonResponse::HTTP_NOT_FOUND);
         }
 
         if (!$user) {
-            return new Response("User not found", Response::HTTP_NOT_FOUND);
+            return new JsonResponse("User not found", JsonResponse::HTTP_NOT_FOUND);
         }
 
         if (!$startDate || !$endDate) {
-            return new Response("StartDate or endDate not found", Response::HTTP_NOT_FOUND);
+            return new JsonResponse("StartDate or endDate not found", JsonResponse::HTTP_NOT_FOUND);
         }
 
         $availabilityCheck = $this->carService->isCarAvailable($car, new \DateTime($startDate), new \DateTime($endDate));
         $dateValidation = $this->carService->validateReservationDates(new \DateTime($startDate), new \DateTime($endDate));
 
-        if (!$availabilityCheck) {
-            return new Response("Car not available for the specified dates.", Response::HTTP_BAD_REQUEST);
+        // dump($availabilityCheck);
+        if ($availabilityCheck == false) {
+            return new JsonResponse("Car not available for the specified dates.", JsonResponse::HTTP_BAD_REQUEST);
         }
 
         if (!$dateValidation) {
-            return new Response("Invalid reservation dates", Response::HTTP_BAD_REQUEST);
+            return new JsonResponse("Invalid reservation dates", JsonResponse::HTTP_BAD_REQUEST);
         }
 
-        return true;
+        return new JsonResponse("Reservation is valid", JsonResponse::HTTP_OK);
     }
 }

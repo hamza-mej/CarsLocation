@@ -25,8 +25,10 @@ class ReservationRepository extends ServiceEntityRepository
     public function findReservationsForCarBetweenDates(Car $car, \DateTime $startDate, \DateTime $endDate): array
     {
         return $this->createQueryBuilder('r')
-            ->andWhere('r.car = :car')
-            ->andWhere('r.endDate > :startDate AND r.startDate < :endDate')
+            ->andWhere('r.Car = :car')
+            ->andWhere(':endDate > r.startDate AND :startDate < r.endDate')
+            ->andWhere(':startDate BETWEEN r.startDate AND r.endDate')
+            ->andWhere(':endDate BETWEEN r.startDate AND r.endDate')
             ->setParameter('car', $car)
             ->setParameter('startDate', $startDate)
             ->setParameter('endDate', $endDate)
